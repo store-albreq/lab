@@ -70,6 +70,26 @@
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased selection:bg-blue-200 selection:text-blue-900">
+    <!-- Firebase SDK Integration -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.x.x/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.x.x/firebase-analytics.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB7U1u8-6jqh8xcAzQgbXXYeWaAyYNMFdQ",
+            authDomain: "bio-lab-d224a.firebaseapp.com",
+            projectId: "bio-lab-d224a",
+            storageBucket: "bio-lab-d224a.appspot.com",
+            messagingSenderId: "672555847809",
+            appId: "1:672555847809:web:f40e833655bff40c3a7d80",
+            measurementId: "G-6JW0W7P0GY"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        window.firebaseApp = app;
+        console.log("Firebase connected successfully to Bio Lab!");
+    </script>
+
     <div id="root"></div>
 
     <script type="text/babel">
