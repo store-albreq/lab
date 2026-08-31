@@ -64,7 +64,7 @@
         }
         
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; rounded: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
@@ -73,7 +73,35 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
+
+        const SECONDARY_ADMIN_PIN = "lab224466";
+
+        const categoryTranslations = {
+            'أمراض الدم': 'HAEMATOLOGY',
+            'الكيمياء السريرية': 'CLINICAL CHEMISTRY',
+            'الهرمونات': 'HORMONES & ENDOCRINOLOGY',
+            'التحاليل العامة': 'GENERAL LABORATORY TESTS',
+            'المناعة والأمصال': 'IMMUNOLOGY & SEROLOGY'
+        };
+
+        const getCategoryEn = (cat) => {
+            if (!cat) return 'GENERAL TESTS';
+            return categoryTranslations[cat] || cat.toUpperCase();
+        };
+
+        const groupTestsByCategory = (orderTests, testsCatalog) => {
+            const grouped = {};
+            orderTests.forEach(item => {
+                const meta = testsCatalog.find(t => t.id === item.testId);
+                const category = meta?.category || 'التحاليل العامة';
+                if (!grouped[category]) {
+                    grouped[category] = [];
+                }
+                grouped[category].push({ item, meta });
+            });
+            return grouped;
+        };
 
         const initialPatients = [
             { id: 'P-1001', name: 'أحمد محمد علي', age: 34, gender: 'ذكر', phone: '07701234567', email: 'ahmed@gmail.com', regDate: '2026-08-25' },
@@ -86,7 +114,18 @@
             { id: 'T-02', name: 'فحص السكر الصائم (FBS)', category: 'الكيمياء السريرية', price: 10000, unit: 'mg/dL', normalRange: '70 - 99', type: 'single', min: 70, max: 99 },
             { id: 'T-03', name: 'دهون الثلاثية (Triglycerides)', category: 'الكيمياء السريرية', price: 20000, unit: 'mg/dL', normalRange: '0 - 150', type: 'single', min: 0, max: 150 },
             { id: 'T-04', name: 'فيتامين د (Vitamin D3)', category: 'الهرمونات', price: 35000, unit: 'ng/mL', normalRange: '30 - 100', type: 'single', min: 30, max: 100 },
-            { id: 'T-05', name: 'تحليل الإدرار العام (GUE)', category: 'التحاليل العامة', price: 5000, unit: '-', normalRange: 'طبيعي', type: 'text' },
+            { id: 'T-05', name: 'تحليل الإدرار العام (GUE)', category: 'التحاليل العامة', price: 5000, unit: '-', normalRange: 'طبيعي', type: 'single' },
+            { 
+                id: 'T-06', 
+                name: 'وظائف الكلى (RFT)', 
+                category: 'الكيمياء السريرية', 
+                price: 25000, 
+                type: 'panel', 
+                subTests: [
+                    { id: 'sub_urea', name: 'Urea', unit: 'mg/dL', normalRange: '15 - 45', min: 15, max: 45 },
+                    { id: 'sub_creat', name: 'Creatinine', unit: 'mg/dL', normalRange: '0.6 - 1.2', min: 0.6, max: 1.2 }
+                ]
+            },
         ];
 
         const initialOrders = [
@@ -144,7 +183,7 @@
             );
         };
 
-        const DashboardView = ({ patients, orders, revenue, timeFilter, setTimeFilter }) => {
+        const DashboardView = ({ patients, orders, timeFilter, setTimeFilter }) => {
             const now = new Date();
             const filteredOrders = orders.filter(o => {
                 const orderDate = new Date(o.date.replace(' ', 'T'));
@@ -173,30 +212,10 @@
                             <p className="text-xs text-slate-500">إحصائيات وحركة المختبر حسب النطاق الزمني المحدد.</p>
                         </div>
                         <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-                            <button 
-                                onClick={() => setTimeFilter('day')} 
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${timeFilter === 'day' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                            >
-                                يوم
-                            </button>
-                            <button 
-                                onClick={() => setTimeFilter('week')} 
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${timeFilter === 'week' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                            >
-                                أسبوع
-                            </button>
-                            <button 
-                                onClick={() => setTimeFilter('month')} 
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${timeFilter === 'month' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                            >
-                                شهر
-                            </button>
-                            <button 
-                                onClick={() => setTimeFilter('all')} 
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${timeFilter === 'all' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                            >
-                                الكل
-                            </button>
+                            <button onClick={() => setTimeFilter('day')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${timeFilter === 'day' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>يوم</button>
+                            <button onClick={() => setTimeFilter('week')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${timeFilter === 'week' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>أسبوع</button>
+                            <button onClick={() => setTimeFilter('month')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${timeFilter === 'month' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>شهر</button>
+                            <button onClick={() => setTimeFilter('all')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${timeFilter === 'all' ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>الكل</button>
                         </div>
                     </div>
 
@@ -233,7 +252,7 @@
                                 <i className="fas fa-coins"></i>
                             </div>
                             <div>
-                                <p className="text-sm text-slate-500 font-medium">الإيرادات ({timeFilter === 'day' ? 'اليوم' : timeFilter === 'week' ? 'الأسبوع' : timeFilter === 'month' ? 'الشهر' : 'الكل'})</p>
+                                <p className="text-sm text-slate-500 font-medium">الإيرادات</p>
                                 <h3 className="text-2xl font-black text-slate-800 mt-1">{filteredRevenue.toLocaleString()} د.ع</h3>
                             </div>
                         </div>
@@ -241,7 +260,7 @@
 
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-slate-800">أحدث طلبات التحليل ({timeFilter === 'day' ? 'اليوم' : timeFilter === 'week' ? 'الأسبوع' : timeFilter === 'month' ? 'الشهر' : 'الكل'})</h3>
+                            <h3 className="text-lg font-bold text-slate-800">أحدث طلبات التحليل</h3>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-right">
@@ -264,7 +283,7 @@
                                                 <td className="px-4 py-4 text-slate-500" dir="ltr">{order.date}</td>
                                                 <td className="px-4 py-4 font-bold text-slate-700">{order.total.toLocaleString()} د.ع</td>
                                                 <td className="px-4 py-4">
-                                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold flex inline-flex items-center gap-1.5 w-fit ${order.status === 'مكتمل' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 w-fit ${order.status === 'مكتمل' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                                         {order.status === 'مكتمل' ? <i className="fas fa-check"></i> : <i className="fas fa-hourglass-half"></i>}
                                                         {order.status}
                                                     </span>
@@ -412,7 +431,7 @@
 
                                     <div>
                                         <h4 className="font-bold text-slate-800 mb-3 text-base flex items-center gap-2">
-                                            <i className="fas fa-history text-primary"></i> سجل الفحوصات والتحاليل السابقة في المختبر ({patientOrders.length})
+                                            <i className="fas fa-history text-primary"></i> سجل الفحوصات والتحاليل ({patientOrders.length})
                                         </h4>
                                         {patientOrders.length > 0 ? (
                                             <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
@@ -429,6 +448,14 @@
                                                             <div className="flex flex-wrap gap-2">
                                                                 {order.tests.map(t => {
                                                                     const testMeta = tests.find(item => item.id === t.testId);
+                                                                    if (testMeta && testMeta.type === 'panel') {
+                                                                        const subResObj = typeof t.result === 'object' && t.result !== null ? t.result : {};
+                                                                        return (
+                                                                            <span key={t.testId} className="bg-slate-50 px-2.5 py-1 rounded-lg border text-xs font-semibold text-slate-700" dir="ltr">
+                                                                                {testMeta.name}: <strong className={t.isAbnormal ? 'text-red-600' : 'text-slate-800'}>Panel ({Object.keys(subResObj).length})</strong>
+                                                                            </span>
+                                                                        );
+                                                                    }
                                                                     return (
                                                                         <span key={t.testId} className="bg-slate-50 px-2.5 py-1 rounded-lg border text-xs font-semibold text-slate-700" dir="ltr">
                                                                             {testMeta ? testMeta.name : t.testId}: <strong className={t.isAbnormal ? 'text-red-600' : 'text-slate-800'}>{t.result || 'قيد الانتظار'}</strong>
@@ -438,10 +465,7 @@
                                                             </div>
                                                         </div>
                                                         {order.status === 'مكتمل' && (
-                                                            <button 
-                                                                onClick={() => setViewingReportOrder(order)} 
-                                                                className="bg-primary hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 whitespace-nowrap shadow-sm"
-                                                            >
+                                                            <button onClick={() => setViewingReportOrder(order)} className="bg-primary hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 whitespace-nowrap shadow-sm">
                                                                 <i className="fas fa-file-medical"></i> عرض التقرير الكامل
                                                             </button>
                                                         )}
@@ -501,29 +525,70 @@
                                             </div>
                                         </div>
 
-                                        <table className="w-full text-sm text-left" dir="ltr">
-                                            <thead className="border-b-2 border-slate-300 text-slate-700 uppercase text-[11px] font-black">
+                                        <table className="w-full text-sm text-left border-collapse" dir="ltr">
+                                            <thead className="border-b-2 border-slate-800 text-slate-800 uppercase text-[11px] font-black bg-slate-50">
                                                 <tr>
-                                                    <th className="py-2.5 px-2">Test Name</th>
-                                                    <th className="py-2.5 px-2">Result</th>
-                                                    <th className="py-2.5 px-2">Unit</th>
-                                                    <th className="py-2.5 px-2">Reference Range</th>
+                                                    <th className="py-2.5 px-3">Test Name</th>
+                                                    <th className="py-2.5 px-3">Result</th>
+                                                    <th className="py-2.5 px-3">Unit</th>
+                                                    <th className="py-2.5 px-3">Reference Range</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {viewingReportOrder.tests.map((item) => {
-                                                    const meta = tests.find(t => t.id === item.testId);
-                                                    return (
-                                                        <tr key={item.testId} className="border-b border-slate-100">
-                                                            <td className="py-3 px-2 font-bold text-slate-800">{meta ? meta.name : item.testId}</td>
-                                                            <td className={`py-3 px-2 text-base font-black ${item.isAbnormal ? 'text-red-600' : 'text-slate-800'}`}>
-                                                                {item.result} 
+                                                {Object.entries(groupTestsByCategory(viewingReportOrder.tests, tests)).map(([category, items]) => (
+                                                    <React.Fragment key={category}>
+                                                        <tr className="bg-slate-200/80 border-y-2 border-slate-400 print:bg-slate-200">
+                                                            <td colSpan="4" className="py-2 px-3 font-black text-slate-900 tracking-wider uppercase text-xs">
+                                                                <i className="fas fa-layer-group text-primary mr-2 ml-1 no-print"></i>
+                                                                SECTION: {getCategoryEn(category)} ({category})
                                                             </td>
-                                                            <td className="py-3 px-2 text-slate-600 font-medium">{meta?.unit}</td>
-                                                            <td className="py-3 px-2 text-slate-600">{meta?.normalRange}</td>
                                                         </tr>
-                                                    );
-                                                })}
+                                                        {items.map(({ item, meta }) => {
+                                                            if (meta && meta.type === 'panel') {
+                                                                const subResObj = typeof item.result === 'object' && item.result !== null ? item.result : {};
+                                                                return (
+                                                                    <React.Fragment key={item.testId}>
+                                                                        <tr className="border-b border-slate-200 bg-slate-50/70">
+                                                                            <td colSpan="4" className="py-2 px-3 font-black text-primary text-xs" dir="ltr">
+                                                                                {meta.name} (Panel)
+                                                                            </td>
+                                                                        </tr>
+                                                                        {(meta.subTests || []).map(sub => {
+                                                                            const subVal = subResObj[sub.id];
+                                                                            let isSubAbnormal = false;
+                                                                            if (sub.min !== undefined && sub.max !== undefined && subVal !== undefined && subVal !== '') {
+                                                                                const num = parseFloat(subVal);
+                                                                                if (!isNaN(num) && (num < sub.min || num > sub.max)) {
+                                                                                    isSubAbnormal = true;
+                                                                                }
+                                                                            }
+                                                                            return (
+                                                                                <tr key={sub.id} className="border-b border-slate-100">
+                                                                                    <td className="py-2.5 px-5 font-bold text-slate-700 pl-6" dir="ltr">- {sub.name}</td>
+                                                                                    <td className={`py-2.5 px-3 text-sm font-black ${isSubAbnormal ? 'text-red-600' : 'text-slate-800'}`}>
+                                                                                        {subVal !== undefined && subVal !== '' ? subVal : '-'}
+                                                                                    </td>
+                                                                                    <td className="py-2.5 px-3 text-slate-600 font-medium">{sub.unit}</td>
+                                                                                    <td className="py-2.5 px-3 text-slate-600">{sub.normalRange}</td>
+                                                                                </tr>
+                                                                            );
+                                                                        })}
+                                                                    </React.Fragment>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <tr key={item.testId} className="border-b border-slate-100">
+                                                                    <td className="py-3 px-3 font-bold text-slate-800">{meta ? meta.name : item.testId}</td>
+                                                                    <td className={`py-3 px-3 text-base font-black ${item.isAbnormal ? 'text-red-600' : 'text-slate-800'}`}>
+                                                                        {item.result || '-'} 
+                                                                    </td>
+                                                                    <td className="py-3 px-3 text-slate-600 font-medium">{meta?.unit}</td>
+                                                                    <td className="py-3 px-3 text-slate-600">{meta?.normalRange}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </React.Fragment>
+                                                ))}
                                             </tbody>
                                         </table>
 
@@ -586,7 +651,7 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [editingTestId, setEditingTestId] = useState(null);
-            const defaultForm = { name: '', category: 'الكيمياء السريرية', price: '', unit: '', normalRange: '', min: '', max: '' };
+            const defaultForm = { name: '', category: 'الكيمياء السريرية', price: '', unit: '', normalRange: '', min: '', max: '', type: 'single', subTests: [] };
             const [formData, setFormData] = useState(defaultForm);
 
             const filtered = tests.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.category.includes(searchTerm) || t.id.includes(searchTerm));
@@ -594,7 +659,11 @@
             const handleOpenModal = (test = null) => {
                 if (test) {
                     setEditingTestId(test.id);
-                    setFormData(test);
+                    setFormData({
+                        ...test,
+                        type: test.type || 'single',
+                        subTests: test.subTests ? JSON.parse(JSON.stringify(test.subTests)) : []
+                    });
                 } else {
                     setEditingTestId(null);
                     setFormData(defaultForm);
@@ -609,7 +678,12 @@
                     price: Number(formData.price),
                     min: formData.min !== '' ? Number(formData.min) : undefined,
                     max: formData.max !== '' ? Number(formData.max) : undefined,
-                    type: 'single'
+                    type: formData.type || 'single',
+                    subTests: formData.type === 'panel' ? (formData.subTests || []).map(s => ({
+                        ...s,
+                        min: s.min !== '' ? Number(s.min) : undefined,
+                        max: s.max !== '' ? Number(s.max) : undefined,
+                    })) : undefined
                 };
 
                 if (editingTestId) {
@@ -637,7 +711,7 @@
                                 <i className="fas fa-search absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
                                 <input 
                                     type="text" 
-                                    placeholder="بحث عن تحليل (كود، اسم، فئة)..." 
+                                    placeholder="بحث عن تحليل..." 
                                     className="pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl w-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-blue-100 transition-all text-sm"
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
@@ -657,7 +731,7 @@
                                     <th className="px-6 py-4 font-bold">الكود</th>
                                     <th className="px-6 py-4 font-bold">اسم التحليل</th>
                                     <th className="px-6 py-4 font-bold">الفئة الطبية</th>
-                                    <th className="px-6 py-4 font-bold">المعدل الطبيعي (المرجعي)</th>
+                                    <th className="px-6 py-4 font-bold">المعدل الطبيعي</th>
                                     <th className="px-6 py-4 font-bold">السعر</th>
                                     {!readOnly && <th className="px-6 py-4 font-bold text-center">إجراءات</th>}
                                 </tr>
@@ -666,12 +740,15 @@
                                 {filtered.map(t => (
                                     <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50/80 transition-colors">
                                         <td className="px-6 py-4 font-bold text-primary">{t.id}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-800" dir="ltr">{t.name}</td>
+                                        <td className="px-6 py-4 font-bold text-slate-800" dir="ltr">
+                                            {t.name}
+                                            {t.type === 'panel' && <span className="mr-2 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold border border-indigo-200">Panel ({t.subTests?.length || 0})</span>}
+                                        </td>
                                         <td className="px-6 py-4">
                                             <span className="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 shadow-sm">{t.category}</span>
                                         </td>
                                         <td className="px-6 py-4 text-slate-600" dir="ltr">
-                                            {t.normalRange} <span className="text-slate-400 ml-1 font-medium">{t.unit !== '-' ? t.unit : ''}</span>
+                                            {t.type === 'panel' ? `${t.subTests?.length || 0} Sub-tests` : `${t.normalRange} ${t.unit !== '-' ? t.unit : ''}`}
                                         </td>
                                         <td className="px-6 py-4 font-bold text-emerald-600">{t.price.toLocaleString()} د.ع</td>
                                         {!readOnly && (
@@ -692,8 +769,8 @@
                         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingTestId ? "تعديل بيانات التحليل" : "إضافة تحليل جديد"}>
                             <form onSubmit={handleSave} className="space-y-5">
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">اسم التحليل (إنجليزي / عربي)</label>
-                                    <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-blue-100 outline-none transition-all text-left" dir="ltr" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g., Fasting Blood Sugar (FBS)" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">اسم التحليل</label>
+                                    <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-blue-100 outline-none transition-all text-left" dir="ltr" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g., Renal Function Test (RFT)" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-5">
                                     <div>
@@ -711,33 +788,124 @@
                                         <input required type="number" min="0" step="250" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-blue-100 outline-none transition-all" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-5">
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1.5">وحدة القياس</label>
-                                        <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-blue-100 outline-none transition-all text-left" dir="ltr" placeholder="e.g., mg/dL, ng/mL" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1.5">نص المعدل الطبيعي (للطباعة)</label>
-                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-blue-100 outline-none transition-all text-left" dir="ltr" placeholder="e.g., 70 - 99" value={formData.normalRange} onChange={e => setFormData({...formData, normalRange: e.target.value})} />
-                                    </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">نوع التحليل (Type)</label>
+                                    <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary focus:ring-2 focus:ring-blue-100 outline-none transition-all font-bold" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
+                                        <option value="single">تحليل فردي (Single)</option>
+                                        <option value="panel">مجموعة فحص (Panel - يحتوي على أكثر من تحليل فرعي)</option>
+                                    </select>
                                 </div>
-                                
-                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                    <div className="grid grid-cols-2 gap-5">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1.5">الحد الأدنى (اختياري)</label>
-                                            <input type="number" step="any" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-primary" value={formData.min} onChange={e => setFormData({...formData, min: e.target.value})} placeholder="الحد لتلوين النتيجة أحمر" />
+
+                                {formData.type === 'panel' ? (
+                                    <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-xs font-bold text-slate-700">التحاليل الفرعية داخل الـ Panel</span>
+                                            <button type="button" onClick={() => setFormData({
+                                                ...formData, 
+                                                subTests: [...(formData.subTests || []), { id: 'sub_' + Date.now(), name: '', unit: '', normalRange: '', min: '', max: '' }]
+                                            })} className="bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-600 transition-colors shadow-sm">
+                                                <i className="fas fa-plus"></i> إضافة تحليل فرعي (+)
+                                            </button>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1.5">الحد الأقصى (اختياري)</label>
-                                            <input type="number" step="any" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-primary" value={formData.max} onChange={e => setFormData({...formData, max: e.target.value})} placeholder="الحد لتلوين النتيجة أحمر" />
-                                        </div>
+                                        {(!formData.subTests || formData.subTests.length === 0) && (
+                                            <p className="text-xs text-slate-400 text-center py-4">انقر على زر (+) لإضافة التحاليل الفرعية مثل Urea و Creatinine.</p>
+                                        )}
+                                        {(formData.subTests || []).map((sub, idx) => (
+                                            <div key={sub.id || idx} className="p-3 bg-white rounded-xl border border-slate-200 space-y-3 relative shadow-sm">
+                                                <button type="button" onClick={() => {
+                                                    const updated = formData.subTests.filter((_, i) => i !== idx);
+                                                    setFormData({...formData, subTests: updated});
+                                                }} className="absolute top-2 left-2 text-slate-400 hover:text-danger text-xs p-1">
+                                                    <i className="fas fa-trash"></i>
+                                                </button>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold text-slate-600 mb-1">اسم التحليل الفرعي</label>
+                                                        <input required type="text" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none" value={sub.name} onChange={e => {
+                                                            const updated = [...formData.subTests];
+                                                            updated[idx].name = e.target.value;
+                                                            setFormData({...formData, subTests: updated});
+                                                        }} placeholder="e.g., Urea" dir="ltr" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold text-slate-600 mb-1">وحدة القياس</label>
+                                                        <input type="text" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none" value={sub.unit} onChange={e => {
+                                                            const updated = [...formData.subTests];
+                                                            updated[idx].unit = e.target.value;
+                                                            setFormData({...formData, subTests: updated});
+                                                        }} placeholder="mg/dL" dir="ltr" />
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold text-slate-600 mb-1">نص المدى الطبيعي</label>
+                                                        <input required type="text" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none" value={sub.normalRange} onChange={e => {
+                                                            const updated = [...formData.subTests];
+                                                            updated[idx].normalRange = e.target.value;
+                                                            setFormData({...formData, subTests: updated});
+                                                        }} placeholder="15 - 45" dir="ltr" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold text-slate-600 mb-1">الحد الأدنى</label>
+                                                        <input type="number" step="any" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none" value={sub.min} onChange={e => {
+                                                            const updated = [...formData.subTests];
+                                                            updated[idx].min = e.target.value;
+                                                            setFormData({...formData, subTests: updated});
+                                                        }} placeholder="Min" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold text-slate-600 mb-1">الحد الأقصى</label>
+                                                        <input type="number" step="any" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none" value={sub.max} onChange={e => {
+                                                            const updated = [...formData.subTests];
+                                                            updated[idx].max = e.target.value;
+                                                            setFormData({...formData, subTests: updated});
+                                                        }} placeholder="Max" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                </div>
-                                
-                                <div className="pt-4 flex justify-end gap-3 mt-4 border-t">
-                                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 rounded-xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors">إلغاء</button>
-                                    <button type="submit" className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-blue-600 shadow-md shadow-blue-500/20 transition-all">حفظ التحليل</button>
+                                ) : (
+                                    <>
+                                        <div className="grid grid-cols-2 gap-5">
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-1.5">وحدة القياس</label>
+                                                <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none text-left" dir="ltr" placeholder="mg/dL" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-slate-700 mb-1.5">نص المعدل الطبيعي</label>
+                                                <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none text-left" dir="ltr" placeholder="70 - 99" value={formData.normalRange} onChange={e => setFormData({...formData, normalRange: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                            <div className="grid grid-cols-2 gap-5">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">الحد الأدنى</label>
+                                                    <input type="number" step="any" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-primary" value={formData.min} onChange={e => setFormData({...formData, min: e.target.value})} placeholder="الحد لتلوين النتيجة أحمر" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">الحد الأقصى</label>
+                                                    <input type="number" step="any" className="w-full p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-primary" value={formData.max} onChange={e => setFormData({...formData, max: e.target.value})} placeholder="الحد لتلوين النتيجة أحمر" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                <div className="mt-8 pt-5 border-t border-slate-200 bg-slate-50/50 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4 border border-slate-200">
+                                    <div className="text-sm text-slate-500 font-bold hidden sm:block">
+                                        <i className="fas fa-info-circle text-primary mr-1 ml-1"></i> سيتم إضافة التحليل فوراً للقائمة
+                                    </div>
+                                    <div className="flex w-full sm:w-auto gap-3">
+                                        <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 sm:flex-none px-6 py-3 rounded-xl text-slate-600 font-bold bg-white border border-slate-200 hover:bg-slate-100 transition-colors">
+                                            إلغاء
+                                        </button>
+                                        <button type="submit" className="flex-1 sm:flex-none px-8 py-3 bg-emerald-500 text-white font-black rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 text-base">
+                                            <i className="fas fa-save text-xl"></i>
+                                            تأكيد وحفظ التحليل 
+                                        </button>
+                                    </div>
                                 </div>
                             </form>
                         </Modal>
@@ -749,14 +917,11 @@
         const OrdersView = ({ orders, setOrders, patients, setPatients, tests, labDetails }) => {
             const [selectedOrder, setSelectedOrder] = useState(null);
             const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-            
             const [orderMode, setOrderMode] = useState('existing');
             const [newOrderData, setNewOrderData] = useState({ patientId: '', selectedTests: [] });
             const [newPatientData, setNewPatientData] = useState({ name: '', age: '', gender: 'ذكر', phone: '', email: '' });
-
             const [enteringOrder, setEnteringOrder] = useState(null);
             const [resultInputs, setResultInputs] = useState({});
-
             const [aiInterpretation, setAiInterpretation] = useState('');
             const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -806,7 +971,12 @@
                 setEnteringOrder(order);
                 const initialRes = {};
                 order.tests.forEach(t => {
-                    initialRes[t.testId] = t.result || '';
+                    const testMeta = tests.find(test => test.id === t.testId);
+                    if (testMeta && testMeta.type === 'panel') {
+                        initialRes[t.testId] = typeof t.result === 'object' && t.result !== null ? {...t.result} : {};
+                    } else {
+                        initialRes[t.testId] = t.result || '';
+                    }
                 });
                 setResultInputs(initialRes);
             };
@@ -814,17 +984,33 @@
             const saveResults = (e) => {
                 e.preventDefault();
                 const updatedTests = enteringOrder.tests.map(item => {
-                    const val = resultInputs[item.testId];
                     const testMeta = tests.find(t => t.id === item.testId);
-                    let isAbnormal = false;
-                    
-                    if (testMeta && testMeta.min !== undefined && testMeta.max !== undefined && val !== '') {
-                        const num = parseFloat(val);
-                        if (!isNaN(num) && (num < testMeta.min || num > testMeta.max)) {
-                            isAbnormal = true;
+                    if (testMeta && testMeta.type === 'panel') {
+                        const subRes = resultInputs[item.testId] || {};
+                        let isAbnormal = false;
+                        const processedSubRes = {};
+                        (testMeta.subTests || []).forEach(sub => {
+                            const val = subRes[sub.id] || '';
+                            processedSubRes[sub.id] = val;
+                            if (sub.min !== undefined && sub.max !== undefined && val !== '') {
+                                const num = parseFloat(val);
+                                if (!isNaN(num) && (num < sub.min || num > sub.max)) {
+                                    isAbnormal = true;
+                                }
+                            }
+                        });
+                        return { ...item, result: processedSubRes, isAbnormal };
+                    } else {
+                        const val = resultInputs[item.testId] || '';
+                        let isAbnormal = false;
+                        if (testMeta && testMeta.min !== undefined && testMeta.max !== undefined && val !== '') {
+                            const num = parseFloat(val);
+                            if (!isNaN(num) && (num < testMeta.min || num > testMeta.max)) {
+                                isAbnormal = true;
+                            }
                         }
+                        return { ...item, result: val, isAbnormal };
                     }
-                    return { ...item, result: val, isAbnormal };
                 });
 
                 const updatedOrders = orders.map(o => o.id === enteringOrder.id ? { ...o, tests: updatedTests, status: 'مكتمل' } : o);
@@ -842,9 +1028,9 @@
 
                     if (abnormalTests.length > 0) {
                         const testNames = abnormalTests.map(a => tests.find(t => t.id === a.testId)?.name || a.testId).join(' و ');
-                        reportText = `التحليل السريري الذكي: \n\nبناءً على المعطيات المخبرية المرفقة، يُلاحظ وجود قيم تقع خارج النطاق المرجعي الطبيعي في التحاليل التالية: [ ${testNames} ].\n\nهذا الارتفاع/الانخفاض قد يكون له دلالات سريرية. يُنصح بعرض هذا التقرير على الطبيب المختص لربط هذه النتائج بالأعراض السريرية للمريض.\nباقي المؤشرات المفحوصة تبدو ضمن الحدود الطبيعية.`;
+                        reportText = `التحليل السريري الذكي: \n\nبناءً على المعطيات المخبرية المرفقة، يُلاحظ وجود قيم تقع خارج النطاق المرجعي الطبيعي في التحاليل التالية: [ ${testNames} ].\n\nهذا الارتفاع أو الانخفاض قد يتطلب متابعة طبية. يُنصح بعرض هذا التقرير على الطبيب المختص لربط النتائج بالأعراض السريرية.`;
                     } else {
-                        reportText = `التحليل السريري الذكي: \n\nتشير النتائج المخبرية الحالية إلى أن جميع المؤشرات التي تم فحصها تقع ضمن الحدود الطبيعية المرجعية المعتمدة.\nلا توجد دلالات مخبرية واضحة على اختلالات في هذه القراءات.`;
+                        reportText = `التحليل السريري الذكي: \n\nتشير النتائج المخبرية الحالية إلى أن جميع المؤشرات التي تم فحصها تقع ضمن الحدود الطبيعية المرجعية المعتمدة.`;
                     }
                     
                     setAiInterpretation(reportText);
@@ -861,7 +1047,7 @@
                                     <h2 className="text-xl font-bold text-slate-800">طلبات التحاليل والنتائج</h2>
                                     <p className="text-sm text-slate-500 mt-1">إدارة طلبات الفحوصات الطبية، إدخال النتائج، وطباعة التقارير.</p>
                                 </div>
-                                <button onClick={() => setIsNewModalOpen(true)} className="bg-primary hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-sm hover:shadow transition-all">
+                                <button onClick={() => setIsNewModalOpen(true)} className="bg-primary hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-sm transition-all">
                                     <i className="fas fa-plus"></i> طلب تحليل جديد
                                 </button>
                             </div>
@@ -929,26 +1115,54 @@
                                     {enteringOrder.tests.map(item => {
                                         const testMeta = tests.find(t => t.id === item.testId);
                                         return (
-                                            <div key={item.testId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 gap-4 hover:border-blue-200 transition-colors">
+                                            <div key={item.testId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 gap-4">
                                                 <div className="flex-1">
-                                                    <h4 className="font-bold text-slate-800 text-lg" dir="ltr">{testMeta ? testMeta.name : item.testId}</h4>
+                                                    <h4 className="font-bold text-slate-800 text-lg" dir="ltr">
+                                                        {testMeta ? testMeta.name : item.testId}
+                                                        {testMeta?.type === 'panel' && <span className="mr-2 text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-normal">Panel</span>}
+                                                    </h4>
                                                     <div className="flex items-center gap-4 mt-1">
                                                         <span className="text-xs text-slate-500 bg-slate-200 px-2 py-0.5 rounded" dir="ltr">{testMeta?.category}</span>
-                                                        <span className="text-xs font-semibold text-slate-600" dir="ltr">Range: {testMeta?.normalRange} {testMeta?.unit}</span>
                                                     </div>
                                                 </div>
-                                                <div className="w-full sm:w-48 relative">
-                                                    <input 
-                                                        type="text" 
-                                                        required 
-                                                        placeholder="أدخل القيمة..." 
-                                                        className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:border-primary focus:ring-2 focus:ring-blue-100 outline-none font-bold text-lg transition-all"
-                                                        dir="ltr"
-                                                        value={resultInputs[item.testId] || ''}
-                                                        onChange={e => setResultInputs({...resultInputs, [item.testId]: e.target.value})}
-                                                    />
-                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 select-none pointer-events-none" dir="ltr">{testMeta?.unit}</span>
-                                                </div>
+                                                {testMeta?.type === 'panel' ? (
+                                                    <div className="space-y-2 w-full sm:w-72 bg-white p-3 rounded-xl border border-slate-200">
+                                                        {(testMeta.subTests || []).map(sub => (
+                                                            <div key={sub.id} className="flex items-center justify-between gap-2">
+                                                                <span className="text-xs font-bold text-slate-700" dir="ltr">{sub.name}:</span>
+                                                                <div className="w-36 relative">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        required 
+                                                                        placeholder="القيمة..." 
+                                                                        className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold outline-none focus:border-primary"
+                                                                        dir="ltr"
+                                                                        value={(resultInputs[item.testId] || {})[sub.id] || ''}
+                                                                        onChange={e => {
+                                                                            const currentPanelRes = { ...(resultInputs[item.testId] || {}) };
+                                                                            currentPanelRes[sub.id] = e.target.value;
+                                                                            setResultInputs({...resultInputs, [item.testId]: currentPanelRes});
+                                                                        }}
+                                                                    />
+                                                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400" dir="ltr">{sub.unit !== '-' ? sub.unit : ''}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full sm:w-48 relative">
+                                                        <input 
+                                                            type="text" 
+                                                            required 
+                                                            placeholder="أدخل القيمة..." 
+                                                            className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:border-primary outline-none font-bold text-lg"
+                                                            dir="ltr"
+                                                            value={resultInputs[item.testId] || ''}
+                                                            onChange={e => setResultInputs({...resultInputs, [item.testId]: e.target.value})}
+                                                        />
+                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400" dir="ltr">{testMeta?.unit}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -1020,29 +1234,70 @@
                                     </div>
 
                                     <div className="min-h-[400px]">
-                                        <table className="w-full text-sm text-left" dir="ltr">
-                                            <thead className="border-b-2 border-slate-300 text-slate-700 uppercase text-xs font-black">
+                                        <table className="w-full text-sm text-left border-collapse" dir="ltr">
+                                            <thead className="border-b-2 border-slate-800 text-slate-800 uppercase text-xs font-black bg-slate-50">
                                                 <tr>
-                                                    <th className="py-3 px-2">Test Name</th>
-                                                    <th className="py-3 px-2">Result</th>
-                                                    <th className="py-3 px-2">Unit</th>
-                                                    <th className="py-3 px-2">Reference Range</th>
+                                                    <th className="py-3 px-3">Test Name</th>
+                                                    <th className="py-3 px-3">Result</th>
+                                                    <th className="py-3 px-3">Unit</th>
+                                                    <th className="py-3 px-3">Reference Range</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {selectedOrder.tests.map((item, idx) => {
-                                                    const meta = tests.find(t => t.id === item.testId);
-                                                    return (
-                                                        <tr key={item.testId} className={`border-b border-slate-100 print:bg-transparent`}>
-                                                            <td className="py-4 px-2 font-bold text-slate-800">{meta ? meta.name : item.testId}</td>
-                                                            <td className={`py-4 px-2 text-lg font-black ${item.isAbnormal ? 'text-red-600 print:text-red-600' : 'text-slate-800'}`}>
-                                                                {item.result} 
+                                                {Object.entries(groupTestsByCategory(selectedOrder.tests, tests)).map(([category, items]) => (
+                                                    <React.Fragment key={category}>
+                                                        <tr className="bg-slate-200/80 border-y-2 border-slate-400 print:bg-slate-200">
+                                                            <td colSpan="4" className="py-2.5 px-3 font-black text-slate-900 tracking-wider uppercase text-xs">
+                                                                <i className="fas fa-layer-group text-primary mr-2 ml-1 no-print"></i>
+                                                                SECTION: {getCategoryEn(category)} ({category})
                                                             </td>
-                                                            <td className="py-4 px-2 text-slate-600 font-medium">{meta?.unit}</td>
-                                                            <td className="py-4 px-2 text-slate-600">{meta?.normalRange}</td>
                                                         </tr>
-                                                    );
-                                                })}
+                                                        {items.map(({ item, meta }) => {
+                                                            if (meta && meta.type === 'panel') {
+                                                                const subResObj = typeof item.result === 'object' && item.result !== null ? item.result : {};
+                                                                return (
+                                                                    <React.Fragment key={item.testId}>
+                                                                        <tr className="border-b border-slate-200 bg-slate-50/70">
+                                                                            <td colSpan="4" className="py-2 px-3 font-black text-primary text-sm">
+                                                                                <i className="fas fa-layer-group ml-1 no-print"></i> {meta.name} (Panel)
+                                                                            </td>
+                                                                        </tr>
+                                                                        {(meta.subTests || []).map(sub => {
+                                                                            const subVal = subResObj[sub.id];
+                                                                            let isSubAbnormal = false;
+                                                                            if (sub.min !== undefined && sub.max !== undefined && subVal !== undefined && subVal !== '') {
+                                                                                const num = parseFloat(subVal);
+                                                                                if (!isNaN(num) && (num < sub.min || num > sub.max)) {
+                                                                                    isSubAbnormal = true;
+                                                                                }
+                                                                            }
+                                                                            return (
+                                                                                <tr key={sub.id} className="border-b border-slate-100">
+                                                                                    <td className="py-3 px-5 font-bold text-slate-700 pl-6" dir="ltr">- {sub.name}</td>
+                                                                                    <td className={`py-3 px-3 text-base font-black ${isSubAbnormal ? 'text-red-600 print:text-red-600' : 'text-slate-800'}`}>
+                                                                                        {subVal !== undefined && subVal !== '' ? subVal : '-'}
+                                                                                    </td>
+                                                                                    <td className="py-3 px-3 text-slate-600 font-medium">{sub.unit}</td>
+                                                                                    <td className="py-3 px-3 text-slate-600">{sub.normalRange}</td>
+                                                                                </tr>
+                                                                            );
+                                                                        })}
+                                                                    </React.Fragment>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <tr key={item.testId} className="border-b border-slate-100">
+                                                                    <td className="py-4 px-3 font-bold text-slate-800">{meta ? meta.name : item.testId}</td>
+                                                                    <td className={`py-4 px-3 text-lg font-black ${item.isAbnormal ? 'text-red-600 print:text-red-600' : 'text-slate-800'}`}>
+                                                                        {item.result || '-'} 
+                                                                    </td>
+                                                                    <td className="py-4 px-3 text-slate-600 font-medium">{meta?.unit}</td>
+                                                                    <td className="py-4 px-3 text-slate-600">{meta?.normalRange}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </React.Fragment>
+                                                ))}
                                             </tbody>
                                         </table>
                                     </div>
@@ -1063,11 +1318,9 @@
                                             <p className="border-t-2 border-slate-300 pt-2 font-bold text-slate-700 mb-1">فاحص المختبر</p>
                                             <p className="text-xs text-slate-500 font-medium" dir="ltr">Lab Technologist</p>
                                         </div>
-                                        
                                         <div className="text-center pt-8 text-xs text-slate-400">
                                             <i className="fas fa-qrcode text-3xl mb-2 opacity-50"></i>
                                             <p>نهاية التقرير - End of Report</p>
-                                            <p className="mt-1" dir="ltr">Printed on: {new Date().toLocaleString('en-US', { hour12: false })}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1116,16 +1369,6 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-1.5">رقم الهاتف (اختياري)</label>
-                                            <input type="text" dir="ltr" className="w-full p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-primary" value={newPatientData.phone} onChange={e => setNewPatientData({...newPatientData, phone: e.target.value})} placeholder="07XXXXXXXXX" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-1.5">البريد الإلكتروني (اختياري)</label>
-                                            <input type="email" dir="ltr" className="w-full p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-primary" value={newPatientData.email} onChange={e => setNewPatientData({...newPatientData, email: e.target.value})} placeholder="email@example.com" />
-                                        </div>
-                                    </div>
                                 </div>
                             )}
 
@@ -1142,7 +1385,10 @@
                                                 onChange={() => toggleTestSelection(test.id)} 
                                             />
                                             <div className="flex-1">
-                                                <p className="font-bold text-sm text-slate-800" dir="ltr">{test.name}</p>
+                                                <p className="font-bold text-sm text-slate-800" dir="ltr">
+                                                    {test.name}
+                                                    {test.type === 'panel' && <span className="mr-1 text-[10px] text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Panel</span>}
+                                                </p>
                                                 <p className="text-xs text-emerald-600 font-semibold mt-0.5">{test.price.toLocaleString()} د.ع</p>
                                             </div>
                                         </label>
@@ -1159,7 +1405,7 @@
                                 </div>
                                 <div className="flex gap-3">
                                     <button type="button" onClick={() => setIsNewModalOpen(false)} className="px-5 py-2.5 rounded-xl text-slate-600 font-semibold hover:bg-slate-100 transition-colors hidden sm:block">إلغاء</button>
-                                    <button type="submit" disabled={newOrderData.selectedTests.length === 0 || (orderMode === 'existing' && !newOrderData.patientId)} className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-blue-600 shadow-md shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <button type="submit" disabled={newOrderData.selectedTests.length === 0 || (orderMode === 'existing' && !newOrderData.patientId)} className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-blue-600 shadow-md transition-all disabled:opacity-50">
                                         تأكيد الطلب
                                     </button>
                                 </div>
@@ -1177,13 +1423,11 @@
             const [errorMsg, setErrorMsg] = useState('');
             const [successMsg, setSuccessMsg] = useState('');
             
-            // For Forgot Password
             const [forgotPhone, setForgotPhone] = useState('');
             const [sentCode, setSentCode] = useState('');
             const [enteredCode, setEnteredCode] = useState('');
             const [newPassword, setNewPassword] = useState('');
 
-            // For First Time Registration
             const [regName, setRegName] = useState('');
             const [regPhone, setRegPhone] = useState('');
             const [regPassword, setRegPassword] = useState('');
@@ -1194,7 +1438,7 @@
                 if ((identifier === labDetails.phone || identifier === labDetails.name || identifier === 'admin') && password === adminPassword) {
                     setIsAuthenticated(true);
                 } else {
-                    setErrorMsg('خطأ: اسم المختبر/رقم الهاتف أو الرقم السري غير صحيح.');
+                    setErrorMsg('خطأ: اسم المختبر أو رقم الهاتف أو الرقم السري غير صحيح.');
                 }
             };
 
@@ -1216,7 +1460,6 @@
                 if (forgotPhone) {
                     const code = Math.floor(1000 + Math.random() * 9000).toString();
                     setSentCode(code);
-                    console.log("Verification Code:", code);
                     setSuccessMsg(`تم إرسال رسالة نصية إلى هاتف ${forgotPhone}`);
                     setAuthStep('forgot_verify');
                 } else {
@@ -1228,10 +1471,10 @@
                 e.preventDefault();
                 setErrorMsg('');
                 if (enteredCode === sentCode) {
-                    setSuccessMsg('تم التحقق من الكود بنجاح. يرجى إدخال الرقم السري الجديد.');
+                    setSuccessMsg('تم التحقق بنجاح. أدخل الرقم السري الجديد.');
                     setAuthStep('forgot_new_password');
                 } else {
-                    setErrorMsg('كود التحقق غير صحيح. يرجى المحاولة مرة أخرى.');
+                    setErrorMsg('كود التحقق غير صحيح.');
                 }
             };
 
@@ -1240,7 +1483,7 @@
                 setErrorMsg('');
                 if (newPassword.length >= 6) {
                     setAdminPassword(newPassword);
-                    setSuccessMsg('تم تغيير الرقم السري بنجاح! يمكنك الآن تسجيل الدخول.');
+                    setSuccessMsg('تم تغيير الرقم السري بنجاح!');
                     setAuthStep('login');
                     setPassword('');
                     setIdentifier(forgotPhone || labDetails.phone);
@@ -1259,28 +1502,28 @@
                         {authStep === 'login' && (
                             <form onSubmit={handleLogin} className="fade-in">
                                 <h3 className="text-2xl font-black mb-1 text-center text-slate-800">تسجيل الدخول للنظام</h3>
-                                <p className="text-xs text-slate-500 mb-6 text-center">أدخل اسم المختبر أو رقم الهاتف والرقم السري للمتابعة.</p>
+                                <p className="text-xs text-slate-500 mb-6 text-center">أدخل بيانات الاعتماد للمتابعة.</p>
                                 
                                 {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 font-semibold text-center">{errorMsg}</div>}
                                 {successMsg && <div className="mb-4 p-3 bg-emerald-50 text-emerald-600 text-sm rounded-xl border border-emerald-100 font-semibold text-center">{successMsg}</div>}
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">اسم المختبر أو رقم الهاتف</label>
-                                        <input required type="text" placeholder={`مثال: ${labDetails.phone}`} className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary focus:bg-white outline-none transition-all text-left" dir="auto" value={identifier} onChange={e => setIdentifier(e.target.value)} />
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">اسم المختبر أو الهاتف</label>
+                                        <input required type="text" className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none text-left" dir="auto" value={identifier} onChange={e => setIdentifier(e.target.value)} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">الرقم السري</label>
-                                        <input required type="password" placeholder="••••••••" className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary focus:bg-white outline-none transition-all" value={password} onChange={e => setPassword(e.target.value)} />
+                                        <input required type="password" placeholder="••••••••" className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none" value={password} onChange={e => setPassword(e.target.value)} />
                                     </div>
                                 </div>
                                 
                                 <div className="flex justify-between items-center mt-4">
-                                    <button type="button" onClick={() => {setAuthStep('forgot_phone'); setErrorMsg(''); setSuccessMsg(''); setForgotPhone('');}} className="text-xs text-primary font-bold hover:underline">نسيت الرقم السري؟</button>
+                                    <button type="button" onClick={() => {setAuthStep('forgot_phone'); setErrorMsg(''); setSuccessMsg('');}} className="text-xs text-primary font-bold hover:underline">نسيت الرقم السري؟</button>
                                     <button type="button" onClick={() => {setAuthStep('register_first'); setErrorMsg(''); setSuccessMsg('');}} className="text-xs text-secondary font-bold hover:underline">تسجيل لأول مرة؟</button>
                                 </div>
 
-                                <button type="submit" className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3.5 rounded-xl mt-6 transition-all shadow-lg shadow-blue-500/25 flex justify-center items-center gap-2">
+                                <button type="submit" className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3.5 rounded-xl mt-6 transition-all shadow-lg flex justify-center items-center gap-2">
                                     تسجيل الدخول <i className="fas fa-arrow-left mt-0.5"></i>
                                 </button>
                             </form>
@@ -1289,31 +1532,29 @@
                         {authStep === 'register_first' && (
                             <form onSubmit={handleFirstTimeRegister} className="fade-in">
                                 <h3 className="text-xl font-black mb-1 text-center text-slate-800">تسجيل الدخول لأول مرة</h3>
-                                <p className="text-xs text-slate-500 mb-6 text-center">قم بإعداد بيانات المختبر الأساسية والرقم السري لحسابك.</p>
+                                <p className="text-xs text-slate-500 mb-6 text-center">قم بإعداد بيانات المختبر الأساسية.</p>
                                 
                                 {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 font-semibold text-center">{errorMsg}</div>}
 
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">اسم المختبر</label>
-                                        <input required type="text" placeholder="اسم المختبر الطبي" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none" value={regName} onChange={e => setRegName(e.target.value)} />
+                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none" value={regName} onChange={e => setRegName(e.target.value)} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">رقم الهاتف</label>
-                                        <input required type="text" placeholder="07XXXXXXXXX" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none text-left" dir="ltr" value={regPhone} onChange={e => setRegPhone(e.target.value)} />
+                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none text-left" dir="ltr" value={regPhone} onChange={e => setRegPhone(e.target.value)} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">الرقم السري الجديد (6 رموز على الأقل)</label>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">الرقم السري الجديد</label>
                                         <input required type="password" placeholder="••••••••" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none" value={regPassword} onChange={e => setRegPassword(e.target.value)} />
                                     </div>
                                 </div>
                                 
-                                <button type="submit" className="w-full bg-success hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl mt-6 transition-all shadow-lg shadow-emerald-500/25">
+                                <button type="submit" className="w-full bg-success hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl mt-6 transition-all shadow-lg">
                                     حفظ وبدء استخدام النظام
                                 </button>
-                                <button type="button" onClick={() => {setAuthStep('login'); setErrorMsg(''); setSuccessMsg('');}} className="w-full text-slate-500 font-bold py-3 mt-2 hover:text-slate-800 transition-colors text-xs">
-                                    العودة لتسجيل الدخول
-                                </button>
+                                <button type="button" onClick={() => setAuthStep('login')} className="w-full text-slate-500 font-bold py-3 mt-2 text-xs">العودة لتسجيل الدخول</button>
                             </form>
                         )}
 
@@ -1321,67 +1562,39 @@
                             <form onSubmit={handleSendCode} className="fade-in">
                                 <h3 className="text-xl font-bold mb-2 text-center text-slate-800">استعادة الرقم السري</h3>
                                 <p className="text-sm text-slate-500 mb-6 text-center">أدخل رقم الهاتف لإرسال كود التحقق.</p>
-                                
-                                {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 font-semibold text-center">{errorMsg}</div>}
-
+                                {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center">{errorMsg}</div>}
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">رقم الهاتف</label>
-                                        <input required type="text" placeholder="07XXXXXXXXX" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none text-left" dir="ltr" value={forgotPhone} onChange={e => setForgotPhone(e.target.value)} />
+                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none text-left" dir="ltr" value={forgotPhone} onChange={e => setForgotPhone(e.target.value)} />
                                     </div>
                                 </div>
-                                
-                                <button type="submit" className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-xl mt-6 transition-all shadow-md">
-                                    إرسال رمز التحقق
-                                </button>
-                                <button type="button" onClick={() => {setAuthStep('login'); setErrorMsg(''); setSuccessMsg('');}} className="w-full text-slate-500 font-bold py-3 mt-2 hover:text-slate-800 transition-colors">
-                                    العودة لتسجيل الدخول
-                                </button>
+                                <button type="submit" className="w-full bg-primary text-white font-bold py-3 rounded-xl mt-6">إرسال رمز التحقق</button>
+                                <button type="button" onClick={() => setAuthStep('login')} className="w-full text-slate-500 font-bold py-3 mt-2">العودة</button>
                             </form>
                         )}
 
                         {authStep === 'forgot_verify' && (
                             <form onSubmit={handleVerifyCode} className="fade-in">
                                 <h3 className="text-xl font-bold mb-2 text-center text-slate-800">إدخال كود التحقق</h3>
-                                <p className="text-sm text-slate-500 mb-6 text-center">أدخل الكود المرسل إلى هاتفك.</p>
-                                
-                                {successMsg && <div className="mb-4 p-3 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-100 font-semibold text-center" dir="auto">{successMsg}</div>}
-                                {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 font-semibold text-center">{errorMsg}</div>}
-
+                                <p className="text-sm text-slate-500 mb-6 text-center">{successMsg}</p>
+                                {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center">{errorMsg}</div>}
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">كود التحقق (4 أرقام)</label>
-                                        <input required type="text" maxLength="4" placeholder="XXXX" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none text-center text-xl tracking-widest font-bold" dir="ltr" value={enteredCode} onChange={e => setEnteredCode(e.target.value)} />
+                                        <input required type="text" maxLength="4" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-xl tracking-widest font-bold" dir="ltr" value={enteredCode} onChange={e => setEnteredCode(e.target.value)} />
                                     </div>
                                 </div>
-                                
-                                <button type="submit" className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-xl mt-6 transition-all shadow-md">
-                                    تحقق من الكود
-                                </button>
-                                <button type="button" onClick={() => {setAuthStep('forgot_phone'); setErrorMsg(''); setSuccessMsg('');}} className="w-full text-slate-500 font-bold py-3 mt-2 hover:text-slate-800 transition-colors">
-                                    إعادة إرسال أو تغيير الرقم
-                                </button>
+                                <button type="submit" className="w-full bg-primary text-white font-bold py-3 rounded-xl mt-6">تحقق</button>
                             </form>
                         )}
 
                         {authStep === 'forgot_new_password' && (
                             <form onSubmit={handleSaveNewPassword} className="fade-in">
-                                <h3 className="text-xl font-bold mb-2 text-center text-slate-800">إنشاء رقم سري جديد</h3>
-                                <p className="text-sm text-slate-500 mb-6 text-center">أدخل الرقم السري الجديد لحسابك.</p>
-                                
-                                {successMsg && <div className="mb-4 p-3 bg-emerald-50 text-emerald-600 text-sm rounded-lg border border-emerald-100 font-semibold text-center">{successMsg}</div>}
-                                {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 font-semibold text-center">{errorMsg}</div>}
-
+                                <h3 className="text-xl font-bold mb-2 text-center text-slate-800">رقم سري جديد</h3>
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">الرقم السري الجديد</label>
-                                        <input required type="password" placeholder="••••••••" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-primary outline-none" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-                                    </div>
+                                    <input required type="password" placeholder="الرقم السري الجديد" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                                 </div>
-                                
-                                <button type="submit" className="w-full bg-success hover:bg-emerald-600 text-white font-bold py-3 rounded-xl mt-6 transition-all shadow-md">
-                                    حفظ الرقم السري وتأكيد الدخول
-                                </button>
+                                <button type="submit" className="w-full bg-success text-white font-bold py-3 rounded-xl mt-6">حفظ وتأكيد</button>
                             </form>
                         )}
                     </div>
@@ -1389,7 +1602,7 @@
             );
         };
 
-        const SettingsView = ({ setIsAuthenticated, patients, setPatients, tests, setTests, labDetails, setLabDetails, adminPassword, setAdminPassword }) => {
+        const SettingsView = ({ setIsAuthenticated, patients, setPatients, tests, setTests, orders, labDetails, setLabDetails }) => {
             const [activeSubTab, setActiveSubTab] = useState('tests');
             const [labFormDetails, setLabFormDetails] = useState(labDetails);
 
@@ -1401,47 +1614,37 @@
             return (
                 <div className="fade-in h-full flex flex-col">
                     <div className="flex flex-wrap gap-2 mb-6 bg-white p-2 rounded-xl shadow-sm border border-slate-100 w-fit mx-auto sm:mx-0">
-                        <button onClick={() => setActiveSubTab('tests')} className={`px-4 sm:px-6 py-2.5 rounded-lg font-bold transition-all ${activeSubTab === 'tests' ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-100 text-slate-600'}`}>
-                            <i className="fas fa-vials ml-2"></i> إدارة التحاليل
-                        </button>
-                        <button onClick={() => setActiveSubTab('patients')} className={`px-4 sm:px-6 py-2.5 rounded-lg font-bold transition-all ${activeSubTab === 'patients' ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-100 text-slate-600'}`}>
-                            <i className="fas fa-users ml-2"></i> إدارة المرضى
-                        </button>
-                        <button onClick={() => setActiveSubTab('lab')} className={`px-4 sm:px-6 py-2.5 rounded-lg font-bold transition-all ${activeSubTab === 'lab' ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-100 text-slate-600'}`}>
-                            <i className="fas fa-clinic-medical ml-2"></i> إدارة المختبر
-                        </button>
-                        <button onClick={() => setIsAuthenticated(false)} className="px-4 py-2.5 rounded-lg font-bold text-danger hover:bg-red-50 transition-all mr-auto border-r border-slate-200">
-                            خروج <i className="fas fa-sign-out-alt ml-1"></i>
-                        </button>
+                        <button onClick={() => setActiveSubTab('tests')} className={`px-4 sm:px-6 py-2.5 rounded-lg font-bold transition-all ${activeSubTab === 'tests' ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-100 text-slate-600'}`}><i className="fas fa-vials ml-2"></i> إدارة التحاليل</button>
+                        <button onClick={() => setActiveSubTab('patients')} className={`px-4 sm:px-6 py-2.5 rounded-lg font-bold transition-all ${activeSubTab === 'patients' ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-100 text-slate-600'}`}><i className="fas fa-users ml-2"></i> إدارة المرضى</button>
+                        <button onClick={() => setActiveSubTab('lab')} className={`px-4 sm:px-6 py-2.5 rounded-lg font-bold transition-all ${activeSubTab === 'lab' ? 'bg-slate-800 text-white shadow-md' : 'hover:bg-slate-100 text-slate-600'}`}><i className="fas fa-clinic-medical ml-2"></i> إدارة المختبر</button>
+                        <button onClick={() => setIsAuthenticated(false)} className="px-4 py-2.5 rounded-lg font-bold text-danger hover:bg-red-50 transition-all mr-auto">خروج <i className="fas fa-sign-out-alt ml-1"></i></button>
                     </div>
-                    
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
                         {activeSubTab === 'tests' && <TestsView tests={tests} setTests={setTests} readOnly={false} />}
-                        {activeSubTab === 'patients' && <PatientsView patients={patients} setPatients={setPatients} orders={orders} tests={tests} readOnly={false} />}
+                        {activeSubTab === 'patients' && <PatientsView patients={patients} setPatients={setPatients} orders={orders} tests={tests} labDetails={labDetails} readOnly={false} />}
                         {activeSubTab === 'lab' && (
                             <form onSubmit={handleSaveLabDetails} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 fade-in max-w-2xl mx-auto w-full mt-4">
                                 <h2 className="text-xl font-bold text-slate-800 mb-6 border-b pb-4"><i className="fas fa-clinic-medical text-primary ml-2"></i> إعدادات معلومات المختبر</h2>
                                 <div className="space-y-5">
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1.5">اسم المختبر (عربي)</label>
-                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none transition-all" value={labFormDetails.name} onChange={e => setLabFormDetails({...labFormDetails, name: e.target.value})} />
+                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none" value={labFormDetails.name} onChange={e => setLabFormDetails({...labFormDetails, name: e.target.value})} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1.5">اسم المختبر (انجليزي)</label>
-                                        <input required type="text" dir="ltr" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none transition-all text-left" value={labFormDetails.nameEn} onChange={e => setLabFormDetails({...labFormDetails, nameEn: e.target.value})} />
+                                        <input required type="text" dir="ltr" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none text-left" value={labFormDetails.nameEn} onChange={e => setLabFormDetails({...labFormDetails, nameEn: e.target.value})} />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1.5">العنوان</label>
-                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none transition-all" value={labFormDetails.address} onChange={e => setLabFormDetails({...labFormDetails, address: e.target.value})} />
+                                        <input required type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none" value={labFormDetails.address} onChange={e => setLabFormDetails({...labFormDetails, address: e.target.value})} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1.5">رقم الهاتف (سيُستخدم لتسجيل الدخول)</label>
-                                        <input required type="text" dir="ltr" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none transition-all text-left" value={labFormDetails.phone} onChange={e => setLabFormDetails({...labFormDetails, phone: e.target.value})} />
+                                        <label className="block text-sm font-bold text-slate-700 mb-1.5">رقم الهاتف</label>
+                                        <input required type="text" dir="ltr" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-primary outline-none text-left" value={labFormDetails.phone} onChange={e => setLabFormDetails({...labFormDetails, phone: e.target.value})} />
                                     </div>
                                 </div>
-                                
                                 <div className="mt-6 pt-4 border-t">
-                                    <button type="submit" className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-blue-600 shadow-md shadow-blue-500/20 transition-all flex items-center gap-2">
+                                    <button type="submit" className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-blue-600 transition-all flex items-center gap-2">
                                         <i className="fas fa-save"></i> حفظ الإعدادات
                                     </button>
                                 </div>
@@ -1454,7 +1657,6 @@
 
         const App = () => {
             const [activeTab, setActiveTab] = useState('dashboard');
-            
             const [patients, setPatients] = useLocalStorage('lis_patients', initialPatients);
             const [tests, setTests] = useLocalStorage('lis_tests', testCatalog);
             const [orders, setOrders] = useLocalStorage('lis_orders', initialOrders);
@@ -1465,23 +1667,34 @@
                 address: 'بغداد - شارع فلسطين'
             });
             const [adminPassword, setAdminPassword] = useLocalStorage('lis_adminPwd', 'admin123');
-            
             const [timeFilter, setTimeFilter] = useState('day'); 
-
-            useEffect(() => {
-                const lastReset = localStorage.getItem('lis_last_reset');
-                const currentTime = new Date().getTime();
-                const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-
-                if (!lastReset) {
-                    localStorage.setItem('lis_last_reset', currentTime);
-                } else if (currentTime - parseInt(lastReset) > TWENTY_FOUR_HOURS) {
-                    setOrders(initialOrders);
-                    localStorage.setItem('lis_last_reset', currentTime);
-                }
-            }, []);
-            
             const [isAuthenticated, setIsAuthenticated] = useLocalStorage('lis_is_authenticated', false);
+
+            const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+            const [inputPin, setInputPin] = useState('');
+            const [pinError, setPinError] = useState('');
+
+            const handleTabClick = (tabId) => {
+                if (tabId === 'settings') {
+                    setPinError('');
+                    setInputPin('');
+                    setIsPinModalOpen(true);
+                } else {
+                    setActiveTab(tabId);
+                }
+            };
+
+            const handlePinSubmit = (e) => {
+                e.preventDefault();
+                if (inputPin === SECONDARY_ADMIN_PIN) {
+                    setIsPinModalOpen(false);
+                    setActiveTab('settings');
+                    setInputPin('');
+                    setPinError('');
+                } else {
+                    setPinError('رمز الحماية غير صحيح! لا يمكن الدخول للنظام والإدارة إلا لصاحب المختبر.');
+                }
+            };
 
             if (!isAuthenticated) {
                 return (
@@ -1495,17 +1708,13 @@
                 );
             }
 
-            const calculateRevenue = () => {
-                return orders.filter(o => o.status === 'مكتمل').reduce((sum, order) => sum + order.total, 0);
-            };
-
             const renderContent = () => {
                 switch(activeTab) {
-                    case 'dashboard': return <DashboardView patients={patients} orders={orders} revenue={calculateRevenue()} timeFilter={timeFilter} setTimeFilter={setTimeFilter} />;
+                    case 'dashboard': return <DashboardView patients={patients} orders={orders} timeFilter={timeFilter} setTimeFilter={setTimeFilter} />;
                     case 'patients': return <PatientsView patients={patients} setPatients={setPatients} orders={orders} tests={tests} labDetails={labDetails} readOnly={false} />;
                     case 'orders': return <OrdersView orders={orders} setOrders={setOrders} patients={patients} setPatients={setPatients} tests={tests} labDetails={labDetails} />;
-                    case 'settings': return <SettingsView setIsAuthenticated={setIsAuthenticated} patients={patients} setPatients={setPatients} tests={tests} setTests={setTests} labDetails={labDetails} setLabDetails={setLabDetails} adminPassword={adminPassword} setAdminPassword={setAdminPassword} />;
-                    default: return <DashboardView patients={patients} orders={orders} revenue={calculateRevenue()} timeFilter={timeFilter} setTimeFilter={setTimeFilter} />;
+                    case 'settings': return <SettingsView setIsAuthenticated={setIsAuthenticated} patients={patients} setPatients={setPatients} tests={tests} setTests={setTests} orders={orders} labDetails={labDetails} setLabDetails={setLabDetails} />;
+                    default: return <DashboardView patients={patients} orders={orders} timeFilter={timeFilter} setTimeFilter={setTimeFilter} />;
                 }
             };
 
@@ -1513,7 +1722,7 @@
                 { id: 'dashboard', label: 'الرئيسية', icon: 'fa-home' },
                 { id: 'orders', label: 'الطلبات والنتائج', icon: 'fa-flask' },
                 { id: 'patients', label: 'المرضى', icon: 'fa-users' },
-                { id: 'settings', label: 'النظام والإدارة', icon: 'fa-cog' },
+                { id: 'settings', label: 'النظام والإدارة', icon: 'fa-user-shield' },
             ];
 
             return (
@@ -1535,7 +1744,7 @@
                             {navItems.map(item => (
                                 <button 
                                     key={item.id}
-                                    onClick={() => setActiveTab(item.id)}
+                                    onClick={() => handleTabClick(item.id)}
                                     className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all whitespace-nowrap text-right
                                         ${activeTab === item.id 
                                             ? 'bg-primary text-white font-bold shadow-md' 
@@ -1543,6 +1752,7 @@
                                 >
                                     <i className={`fas ${item.icon} w-5 text-center ${activeTab === item.id ? 'opacity-100' : 'opacity-70'}`}></i>
                                     {item.label}
+                                    {item.id === 'settings' && <i className="fas fa-lock text-[10px] text-amber-400 mr-auto opacity-70"></i>}
                                 </button>
                             ))}
                         </div>
@@ -1566,6 +1776,47 @@
                     <main className="flex-1 p-4 md:p-8 h-screen overflow-y-auto custom-scrollbar bg-slate-50 relative">
                         {renderContent()}
                     </main>
+
+                    {/* نافذة إدخال الرمز الثانوي لصاحب المختبر */}
+                    <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} title="التحقق من الهوية - صاحب المختبر">
+                        <form onSubmit={handlePinSubmit} className="space-y-4">
+                            <div className="text-center py-2">
+                                <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl border border-amber-200">
+                                    <i className="fas fa-user-lock"></i>
+                                </div>
+                                <h4 className="font-bold text-slate-800 text-base">منطقة محمية لصاحب المختبر الرئيسي</h4>
+                                <p className="text-xs text-slate-500 mt-1">يرجى إدخال الرمز السري الثانوي المخصص لمدير المختبر للوصول لقسم (النظام والإدارة).</p>
+                            </div>
+
+                            {pinError && (
+                                <div className="p-3 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold text-center">
+                                    {pinError}
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1.5">الرمز السري الثانوي</label>
+                                <input 
+                                    type="password"
+                                    required
+                                    placeholder="••••••••"
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary text-center font-mono text-lg tracking-widest"
+                                    value={inputPin}
+                                    onChange={e => setInputPin(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-3 border-t">
+                                <button type="button" onClick={() => setIsPinModalOpen(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 text-sm">
+                                    إلغاء
+                                </button>
+                                <button type="submit" className="flex-1 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-md text-sm flex items-center justify-center gap-1">
+                                    <i className="fas fa-key text-xs"></i> تأكيد الدخول
+                                </button>
+                            </div>
+                        </form>
+                    </Modal>
                 </div>
             );
         };
